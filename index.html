@@ -5,7 +5,7 @@
 		input.decimal {width: 125px; letter-spacing: 2px; text-align: right; font-family: monospace}
 		input.binary {width: 400px; letter-spacing: 2px; text-align: right; font-family: monospace}
 		input.num {width: 25px; letter-spacing: 2px; text-align: right; font-family: monospace}
-		body {background-color:hsla(120,100%,75%,0.1)}
+		body {background-color:hsla(120,100%,75%,0.1); font-family: monospace}
 		</style>
 		<script>
 		var f = "00000000000000000000000000000000";
@@ -127,12 +127,12 @@
 			</tr>
 			<tr>
 				<td>Number 1 zero fill left shift :</td>
-				<td><input type="number" id="numZFLSn1" class="num" value = "0"></td>
+				<td><input type="number" min="0" max="32" id="numZFLSn1" class="num" value = "0"></td>
 				<td><input type="number" id="ZFLSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 2 zero fill left shift :</td>
-				<td><input type="number" id="numZFLSn2" class="num" value = "0"></td>
+				<td><input type="number" min="0" max="32" id="numZFLSn2" class="num" value = "0"></td>
 				<td><input type="number" id="ZFLSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
@@ -140,12 +140,12 @@
 			</tr>
 			<tr>
 				<td>Number 1 zero fill right shift :</td>
-				<td><input type="number" id="numZFRSn1" class="num" value = "0"></td>
+				<td><input type="number" min="0" max="32" id="numZFRSn1" class="num" value = "0"></td>
 				<td><input type="number" id="ZFRSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 2 zero fill right shift :</td>
-				<td><input type="number" id="numZFRSn2" class="num" value = "0"></td>
+				<td><input type="number" min="0" max="32" id="numZFRSn2" class="num" value = "0"></td>
 				<td><input type="number" id="ZFRSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
@@ -153,12 +153,12 @@
 			</tr>
 			<tr>
 				<td>Number 1 signed right shift :</td>
-				<td><input type="number" id="numSRSn1" class="num" value = "0"></td>
+				<td><input type="number" min="0" max="32" id="numSRSn1" class="num" value = "0"></td>
 				<td><input type="number" id="SRSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 2 signed right shift :</td>
-				<td><input type="number" id="numSRSn2" class="num" value = "0"></td>
+				<td><input type="number" min="0" max="32" id="numSRSn2" class="num" value = "0"></td>
 				<td><input type="number" id="SRSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
