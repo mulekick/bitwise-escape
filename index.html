@@ -66,17 +66,17 @@
 		</script>
 	</head>
 	<body onload="initfields()">
-		<h2>Signed 32 bit binary representation of decimal numbers</h2>
+		<h2>Unsigned 32 bit binary representation of integer numbers</h2>
 		<table>
 			<tr>
 				<td>Number 1 (base 10) :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1decimal" class="decimal"></td>
+				<td><input type="number" min="0" max="4294967295" id="n1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 2 (base 10) :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n2decimal" class="decimal"></td>
+				<td><input type="number" min="0" max="4294967295" id="n2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -97,17 +97,17 @@
 			<tr>
 				<td>Number 1 AND Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1ANDn2binary" class="binary">&nbsp;<input type="number" id="n1ANDn2decimal" class="decimal"></td>
+				<td><input type="number" id="n1ANDn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="n1ANDn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 1 OR Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1ORn2binary" class="binary">&nbsp;<input type="number" id="n1ORn2decimal" class="decimal"></td>
+				<td><input type="number" id="n1ORn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="n1ORn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 1 XOR Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1XORn2binary" class="binary">&nbsp;<input type="number" id="n1XORn2decimal" class="decimal"></td>
+				<td><input type="number" id="n1XORn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="n1XORn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -115,12 +115,12 @@
 			<tr>
 				<td>NOT Number 1 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="NOTn1binary" class="binary">&nbsp;<input type="number" id="NOTn1decimal" class="decimal"></td>
+				<td><input type="number" id="NOTn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="NOTn1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>NOT Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="NOTn2binary" class="binary">&nbsp;<input type="number" id="NOTn2decimal" class="decimal"></td>
+				<td><input type="number" id="NOTn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="NOTn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -128,12 +128,12 @@
 			<tr>
 				<td>Number 1 zero fill left shift :</td>
 				<td><input type="number" id="numZFLSn1" class="num" value = "0"></td>
-				<td><input type="number" id="ZFLSn1binary" class="binary">&nbsp;<input type="number" id="ZFLSn1decimal" class="decimal"></td>
+				<td><input type="number" id="ZFLSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 2 zero fill left shift :</td>
 				<td><input type="number" id="numZFLSn2" class="num" value = "0"></td>
-				<td><input type="number" id="ZFLSn2binary" class="binary">&nbsp;<input type="number" id="ZFLSn2decimal" class="decimal"></td>
+				<td><input type="number" id="ZFLSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -141,12 +141,12 @@
 			<tr>
 				<td>Number 1 zero fill right shift :</td>
 				<td><input type="number" id="numZFRSn1" class="num" value = "0"></td>
-				<td><input type="number" id="ZFRSn1binary" class="binary">&nbsp;<input type="number" id="ZFRSn1decimal" class="decimal"></td>
+				<td><input type="number" id="ZFRSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 2 zero fill right shift :</td>
 				<td><input type="number" id="numZFRSn2" class="num" value = "0"></td>
-				<td><input type="number" id="ZFRSn2binary" class="binary">&nbsp;<input type="number" id="ZFRSn2decimal" class="decimal"></td>
+				<td><input type="number" id="ZFRSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -154,12 +154,12 @@
 			<tr>
 				<td>Number 1 signed right shift :</td>
 				<td><input type="number" id="numSRSn1" class="num" value = "0"></td>
-				<td><input type="number" id="SRSn1binary" class="binary">&nbsp;<input type="number" id="SRSn1decimal" class="decimal"></td>
+				<td><input type="number" id="SRSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn1decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td>Number 2 signed right shift :</td>
 				<td><input type="number" id="numSRSn2" class="num" value = "0"></td>
-				<td><input type="number" id="SRSn2binary" class="binary">&nbsp;<input type="number" id="SRSn2decimal" class="decimal"></td>
+				<td><input type="number" id="SRSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn2decimal" class="decimal"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
