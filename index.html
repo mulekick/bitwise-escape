@@ -3,8 +3,9 @@
 	<head>
 		<style>
 		input.decimal {width: 125px; letter-spacing: 2px; text-align: right; font-family: monospace}
+		input:invalid {border: 2px solid red}
 		input.binary {width: 400px; letter-spacing: 2px; text-align: right; font-family: monospace}
-		input.num {width: 25px; letter-spacing: 2px; text-align: right; font-family: monospace}
+		input.num {width: 35px; letter-spacing: 2px; text-align: right; font-family: monospace}
 		body {background-color:hsla(120,100%,75%,0.1); font-family: monospace}
 		</style>
 		<script>
@@ -12,6 +13,24 @@
 		var decfields;
 		var binfields;
 		var numfields;
+		// Restricts input for the given textbox to the given inputFilter
+		function setInputFilter(textbox, inputFilter) {
+			["input", "keydown", "keyup", "mousedown", "mouseup", "select", "contextmenu", "drop"]
+				.forEach(function(event) {
+					textbox.addEventListener(event, function() {
+						if (inputFilter(this.value)) {
+							this.oldValue = this.value;
+							this.oldSelectionStart = this.selectionStart;
+							this.oldSelectionEnd = this.selectionEnd;
+						} else if (this.hasOwnProperty("oldValue")) {
+							this.value = this.oldValue;
+							this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+						} else {
+							this.value = "";
+						}
+					});
+				});
+		}
 		function dec2bin(dec){
 			var n = f + (dec >>> 0).toString(2);
 			return n.substring(n.length - 32);
@@ -50,18 +69,34 @@
 			numfields = 
 			[,,,,,,, "numZFLSn1", "numZFLSn2", "numZFRSn1", "numZFRSn2", "numSRSn1", "numSRSn2"]
 			.map(x => document.getElementById(x));	
-			decfields.forEach((x,i) => x.onchange = (x => updatefields(i, "d")));
-			binfields.forEach((x,i) => x.onchange = (x =>  updatefields(i, "b")));
-			numfields.forEach((x,i) => (typeof x == "undefined") ? false : x.onchange = (x =>  {
-				var t = 1 ^ i % 2;
-				if (i < 9) 
-					binfields[i].value = dec2bin(decfields[t].value << numfields[i].value);
-				else if (i < 11)
-					binfields[i].value = dec2bin(decfields[t].value >>> numfields[i].value);
-				else
-					binfields[i].value = dec2bin(decfields[t].value >> numfields[i].value);
-				decfields[i].value = bin2dec(binfields[i].value);
-			}));
+			decfields.forEach((x,i) => { 
+				// Install input filters (only numbers, value must be a valid Uint32Array element value)
+				setInputFilter(x, value => /^[0-9]*$/i.test(value) && value >= 0 && value <= 4294967295);
+				x.onchange = (x => updatefields(i, "d"))
+			});
+			binfields.forEach((x,i) => {
+				// Install input filters (only 0's or 1's, length of 32 is enforced by ValidityState)
+				setInputFilter(x, value => /^[0-1]*$/i.test(value));
+				x.onchange = (x =>  updatefields(i, "b"))
+			});
+			numfields.forEach((x,i) => {
+				if (typeof x == "undefined") {
+					return false;
+				} else {
+					// Install input filters (only numbers)
+					setInputFilter(x, value => /^[0-9]*/i.test(value) && value >= 0 && value <= 32);
+					x.onchange = (x =>  {
+						var t = 1 ^ i % 2;
+						if (i < 9) 
+							binfields[i].value = dec2bin(decfields[t].value << numfields[i].value);
+						else if (i < 11)
+							binfields[i].value = dec2bin(decfields[t].value >>> numfields[i].value);
+						else
+							binfields[i].value = dec2bin(decfields[t].value >> numfields[i].value);
+						decfields[i].value = bin2dec(binfields[i].value);
+					})
+				}
+			});
 		}
 		</script>
 	</head>
@@ -84,12 +119,12 @@
 			<tr>
 				<td>Number 1 (base  &nbsp;&nbsp;2) :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1binary" class="binary"></td>
+				<td><input type="text" id="n1binary" minlength="32" maxlength="32" class="binary"></td>
 			</tr>
 			<tr>
 				<td>Number 2 (base  &nbsp;&nbsp;2) :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n2binary" class="binary"></td>
+				<td><input type="text" id="n2binary" minlength="32" maxlength="32" class="binary"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -97,17 +132,17 @@
 			<tr>
 				<td>Number 1 AND Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1ANDn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="n1ANDn2decimal" class="decimal"></td>
+				<td><input type="text" id="n1ANDn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="n1ANDn2decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td>Number 1 OR  Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1ORn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="n1ORn2decimal" class="decimal"></td>
+				<td><input type="text" id="n1ORn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="n1ORn2decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td>Number 1 XOR Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="n1XORn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="n1XORn2decimal" class="decimal"></td>
+				<td><input type="text" id="n1XORn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="n1XORn2decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -115,12 +150,12 @@
 			<tr>
 				<td>NOT Number 1 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="NOTn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="NOTn1decimal" class="decimal"></td>
+				<td><input type="text" id="NOTn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="NOTn1decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td>NOT Number 2 :</td>
 				<td>&nbsp;</td>
-				<td><input type="number" id="NOTn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="NOTn2decimal" class="decimal"></td>
+				<td><input type="text" id="NOTn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="NOTn2decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -128,12 +163,12 @@
 			<tr>
 				<td>Number 1 zero fill left shift :</td>
 				<td><input type="number" min="0" max="32" id="numZFLSn1" class="num" value = "0"></td>
-				<td><input type="number" id="ZFLSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn1decimal" class="decimal"></td>
+				<td><input type="text" id="ZFLSn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn1decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td>Number 2 zero fill left shift :</td>
 				<td><input type="number" min="0" max="32" id="numZFLSn2" class="num" value = "0"></td>
-				<td><input type="number" id="ZFLSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn2decimal" class="decimal"></td>
+				<td><input type="text" id="ZFLSn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="ZFLSn2decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -141,12 +176,12 @@
 			<tr>
 				<td>Number 1 zero fill right shift :</td>
 				<td><input type="number" min="0" max="32" id="numZFRSn1" class="num" value = "0"></td>
-				<td><input type="number" id="ZFRSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn1decimal" class="decimal"></td>
+				<td><input type="text" id="ZFRSn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn1decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td>Number 2 zero fill right shift :</td>
 				<td><input type="number" min="0" max="32" id="numZFRSn2" class="num" value = "0"></td>
-				<td><input type="number" id="ZFRSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn2decimal" class="decimal"></td>
+				<td><input type="text" id="ZFRSn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="ZFRSn2decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
@@ -154,12 +189,12 @@
 			<tr>
 				<td>Number 1 signed right shift :</td>
 				<td><input type="number" min="0" max="32" id="numSRSn1" class="num" value = "0"></td>
-				<td><input type="number" id="SRSn1binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn1decimal" class="decimal"></td>
+				<td><input type="text" id="SRSn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn1decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td>Number 2 signed right shift :</td>
 				<td><input type="number" min="0" max="32" id="numSRSn2" class="num" value = "0"></td>
-				<td><input type="number" id="SRSn2binary" class="binary">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn2decimal" class="decimal"></td>
+				<td><input type="text" id="SRSn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;<input type="number" min="0" max="4294967295" id="SRSn2decimal" class="decimal" readonly="true"></td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------------------</td>
