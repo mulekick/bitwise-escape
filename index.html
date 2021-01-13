@@ -12,6 +12,7 @@
 		</style>
         <script>
             /* eslint-disable no-bitwise */
+            /* eslint-disable no-invalid-this */
             'use strict';
             let
                 binfields = null,
@@ -30,6 +31,25 @@
                     return r.substring(r.length - l);
                 },
                 // -------------------------------------
+                applyFilter = filter => {
+                    if (filter(this.value)) {
+                        Object.assign(this, {
+                            oldValue: this.value,
+                            oldSelectionStart: this.selectionStart,
+                            oldSelectionEnd: this.selectionEnd
+                        });
+                    } else if (Object.prototype.hasOwnProperty.call(this, `oldValue`)) {
+                        this.value = this.oldValue;
+                        this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+                    } else {
+                        this.value = ``;
+                    }
+                },
+                // -------------------------------------
+                // Restricts input for the given text field to the given filter
+                setFilter = (fld, filter) => [ `input`, `keydown`, `keyup`, `mousedown`, `mouseup`, `select`, `contextmenu`, `drop` ]
+                    .forEach(s => fld.addEventListener(s, e => applyFilter.call(e.target, filter))),
+                // -------------------------------------
                 updatefields = (i, f) => {
                     if (f === `b`) {
                         // binary value changes, update decimal and hexa
@@ -43,6 +63,22 @@
                         // hexa value changes, update decimal and binary
                         decfields[i].value = base2base(hexfields[i].value, 16, 10, null);
                         binfields[i].value = base2base(hexfields[i].value, 16, 2, BIN_FILLER);
+                    } else if (f === `s`) {
+                        const
+                            t = 1 ^ i % 2;
+                        // shift values change
+                        if (i < 9) {
+                            binfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 2, BIN_FILLER);
+                            hexfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 16, HEX_FILLER);
+                        } else if (i < 11) {
+                            binfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 2, BIN_FILLER);
+                            hexfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 16, HEX_FILLER);
+                        } else {
+                            binfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 2, BIN_FILLER);
+                            hexfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 16, HEX_FILLER);
+                        }
+                        decfields[i].value = base2base(binfields[i].value, 2, 10, null);
+                        return;
                     }
 
                     if (i <= 1) {
@@ -65,28 +101,8 @@
                             binfields[j + 2]
                                 .onchange();
                         });
-
                     }
                 },
-                // -------------------------------------
-                applyFilter = (fld, filter) => {
-                    if (filter(fld.value)) {
-                        Object.assign(fld, {
-                            oldValue: fld.value,
-                            oldSelectionStart: fld.selectionStart,
-                            oldSelectionEnd: fld.selectionEnd
-                        });
-                    } else if (Object.prototype.hasOwnProperty.call(fld, `oldValue`)) {
-                        fld.value = fld.oldValue;
-                        fld.setSelectionRange(fld.oldSelectionStart, fld.oldSelectionEnd);
-                    } else {
-                        fld.value = ``;
-                    }
-                },
-                // -------------------------------------
-                // Restricts input for the given text field to the given filter
-                setFilter = (fld, filter) => [ `input`, `keydown`, `keyup`, `mousedown`, `mouseup`, `select`, `contextmenu`, `drop` ]
-                    .forEach(s => fld.addEventListener(s, e => applyFilter(e.target, filter))),
                 // -------------------------------------
                 // eslint-disable-next-line no-unused-vars
                 initfields = () => {
@@ -127,23 +143,7 @@
                         if (typeof x !== `undefined`) {
                             // Install input filters (only numbers)
                             setFilter(x, value => /^[0-9]*/u.test(value) && value >= 0 && value <= 32);
-                            x.onchange = () =>  {
-                                const
-                                    t = 1 ^ i % 2;
-                                if (i < 9) {
-                                    binfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 2, BIN_FILLER);
-                                    hexfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 16, HEX_FILLER);
-
-                                } else if (i < 11) {
-                                    binfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 2, BIN_FILLER);
-                                    hexfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 16, HEX_FILLER);
-
-                                } else {
-                                    binfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 2, BIN_FILLER);
-                                    hexfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 16, HEX_FILLER);
-                                }
-                                decfields[i].value = base2base(binfields[i].value, 2, 10, null);
-                            };
+                            x.onchange = () =>  updatefields(i, `s`);
                         }
                     });
                     // -------------------------------------
