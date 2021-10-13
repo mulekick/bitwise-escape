@@ -88,13 +88,11 @@
                 // encodes a string in utf16 code units
                 utf16Encode = s => {
                     const
-                        // spread to utf16 code points
-                        sp = [ ...s ],
                         // results buffer
                         bf = [];
-                    // encode code points to utf16 code units
-                    for (let i = 0; i < sp.length; i++)
-                        bf.push(sp[i].charCodeAt(0));
+                    // loop on utf16 code units using builtins
+                    for (let i = 0; i < s.length; i++)
+                        bf.push(s.charCodeAt(i));
                     // return buffer
                     return bf;
                 },
