@@ -3,16 +3,13 @@
 	<head>
 		<style>
 		input.decimal {width: 110px; letter-spacing: 2px; text-align: right; font-family: monospace}
-		input.editable {border: 1px solid #003cff}
+		input.editable, textarea.editable {border: 1px solid #003cff}
 		input:invalid {border: 2px solid red}
 		input.binary {width: 300px; letter-spacing: 2px; text-align: right; font-family: monospace}
 		input.hexa {width: 75px; letter-spacing: 2px; text-align: right; font-family: monospace}
 		input.num {width: 35px; letter-spacing: 2px; text-align: right; font-family: monospace}
-
-		input.txt {width: 580px; letter-spacing: 1px; text-align: left; font-family: monospace}
-		textarea.encodedhex {width: 580px; height: 60px; letter-spacing: 1px; text-align: left; font-family: monospace}
-		textarea.encodedbin {width: 580px; height: 140px; letter-spacing: 1px; text-align: left; font-family: monospace}
-
+		textarea.txtflat {width: 580px; height: 50px; letter-spacing: 1px; text-align: left; font-family: monospace; resize: none}
+		textarea.encoded {width: 580px; height: 120px; letter-spacing: 1px; text-align: left; font-family: monospace; resize: none}
 		body {background-color:hsla(120,100%,75%,0.1); font-family: monospace}
 		</style>
         <script>
@@ -31,6 +28,7 @@
             const
                 // -------------------------------------
                 // binary fillers per integer type (8, 16, 32 bits)
+                // eslint-disable-next-line no-unused-vars
                 [ BIN_FILLER_8, BIN_FILLER_16, BIN_FILLER_32 ] = [ `00000000`, `0000000000000000`, `00000000000000000000000000000000` ],
                 // hexadecimal fillers per integer type (8, 16, 32 bits)
                 [ HEX_FILLER_8, HEX_FILLER_16, HEX_FILLER_32 ] = [ `00`, `0000`, `00000000` ],
@@ -118,37 +116,36 @@
                 // -------------------------------------
                 updatefields = (i, f) => {
                     if (f === `t`) {
-                        // text value changes, update utf8 and utf16
+                        // text value changes, update code points utf8 and utf16
                         const
+                            // store code points
+                            codePts = [ ...textfields[i].value ],
                             // store utf8 code units
                             utf8 = Uint8Array.from(utf8Encode(textfields[i].value)),
                             // store utf16 code units
                             utf16 = Uint16Array.from(utf16Encode(textfields[i].value));
                         // format
+                        textfields[i + 1].value =
+                            codePts
+                                .reduce((r, x) => {
+                                    r.push(`U+${ x.codePointAt(0).toString(16).padStart(4, `0000`) }`);
+                                    return r;
+                                }, [])
+                                .join(`,`);
                         utf8fields[i].value =
-                            `[${ utf8
+                            utf8
                                 .reduce((r, x) => {
-                                    r.push(base2base(x, 10, 16, HEX_FILLER_8));
+                                    r.push(`\\x${ base2base(x, 10, 16, HEX_FILLER_8).toLowerCase() }`);
                                     return r;
-                                }, []) }]`;
-                        utf8fields[i + 1].value =
-                            `[${ utf8
-                                .reduce((r, x) => {
-                                    r.push(base2base(x, 10, 2, BIN_FILLER_8));
-                                    return r;
-                                }, []) }]`;
+                                }, [])
+                                .join(``);
                         utf16fields[i].value =
-                            `[${ utf16
+                            utf16
                                 .reduce((r, x) => {
-                                    r.push(base2base(x, 10, 16, HEX_FILLER_16));
+                                    r.push(`\\u${ base2base(x, 10, 16, HEX_FILLER_16).toLowerCase() }`);
                                     return r;
-                                }, []) }]`;
-                        utf16fields[i + 1].value =
-                            `[${ utf16
-                                .reduce((r, x) => {
-                                    r.push(base2base(x, 10, 2, BIN_FILLER_16));
-                                    return r;
-                                }, []) }]`;
+                                }, [])
+                                .join(``);
                         return;
                     } else if (f === `b`) {
                         // binary value changes, update decimal and hexa
@@ -208,13 +205,13 @@
                     // -------------------------------------
                     // initialize fields
                     textfields =
-                    [ `s1Flat` ]
+                    [ `s1Flat`, `s1CodePtshexa` ]
                         .map(x => document.getElementById(x));
                     utf8fields =
-                    [ `s1Utf8hexa`, `s1Utf8binary` ]
+                    [ `s1Utf8hexa` ]
                         .map(x => document.getElementById(x));
                     utf16fields =
-                    [ `s1Utf16hexa`, `s1Utf16binary` ]
+                    [ `s1Utf16hexa` ]
                         .map(x => document.getElementById(x));
                     // -------------------------------------
                     // install filters
@@ -421,37 +418,35 @@
 				<td colspan="3">&nbsp;</td>
 			</tr>
 			<tr>
-				<td colspan="3"><h2>Binary and hexadecimal representation of UTF-8 / UTF-16 encoded strings</h2></td>
+				<td colspan="3"><h2>Escaping of UTF-8 / UTF-16 encoded strings (hexadecimal)</h2></td>
 			</tr>
 			<tr>
 				<td>String :</td>
-				<td colspan="2"><input type="text" id="s1Flat" minlength="0" maxlength="100" class="txt editable"></td>
+				<td colspan="2"><textarea id="s1Flat" class="txtflat editable"></textarea></td>
 				<td>&nbsp;</td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
 			</tr>
 			<tr>
-				<td>UTF-8 code units (base 16) :</td>
-				<td colspan="2"><textarea id="s1Utf8hexa" class="encodedhex" readonly="true">[]</textarea></td>
-                <td>&nbsp;</td>
-			</tr>
-			<tr>
-				<td>UTF-8 code units (base 2) :</td>
-				<td colspan="2"><textarea id="s1Utf8binary" class="encodedbin" readonly="true">[]</textarea></td>
+				<td>Code points :</td>
+				<td colspan="2"><textarea id="s1CodePtshexa" class="encoded" readonly="true"></textarea></td>
                 <td>&nbsp;</td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
 			</tr>
 			<tr>
-				<td>UTF-16 code units (base 16) :</td>
-				<td colspan="2"><textarea id="s1Utf16hexa" class="encodedhex" readonly="true">[]</textarea></td>
+				<td>UTF-8 code units (escaped) :</td>
+				<td colspan="2"><textarea id="s1Utf8hexa" class="encoded" readonly="true"></textarea></td>
                 <td>&nbsp;</td>
 			</tr>
 			<tr>
-				<td>UTF-16 code units (base 2) :</td>
-				<td colspan="2"><textarea id="s1Utf16binary" class="encodedbin" readonly="true">[]</textarea></td>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>UTF-16 code units (escaped) :</td>
+				<td colspan="2"><textarea id="s1Utf16hexa" class="encoded" readonly="true"></textarea></td>
                 <td>&nbsp;</td>
 			</tr>
 		</table>
