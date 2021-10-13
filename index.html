@@ -8,6 +8,11 @@
 		input.binary {width: 300px; letter-spacing: 2px; text-align: right; font-family: monospace}
 		input.hexa {width: 75px; letter-spacing: 2px; text-align: right; font-family: monospace}
 		input.num {width: 35px; letter-spacing: 2px; text-align: right; font-family: monospace}
+
+		input.txt {width: 580px; letter-spacing: 1px; text-align: left; font-family: monospace}
+		textarea.encodedhex {width: 580px; height: 60px; letter-spacing: 1px; text-align: left; font-family: monospace}
+		textarea.encodedbin {width: 580px; height: 140px; letter-spacing: 1px; text-align: left; font-family: monospace}
+
 		body {background-color:hsla(120,100%,75%,0.1); font-family: monospace}
 		</style>
         <script>
@@ -18,17 +23,80 @@
                 binfields = null,
                 decfields = null,
                 hexfields = null,
-                numfields = null;
+                numfields = null,
+                textfields = null,
+                utf8fields = null,
+                utf16fields = null;
 
             const
                 // -------------------------------------
-                [ HEX_FILLER, BIN_FILLER ] = [ `00000000`, `00000000000000000000000000000000` ],
+                // binary fillers per integer type (8, 16, 32 bits)
+                [ BIN_FILLER_8, BIN_FILLER_16, BIN_FILLER_32 ] = [ `00000000`, `0000000000000000`, `00000000000000000000000000000000` ],
+                // hexadecimal fillers per integer type (8, 16, 32 bits)
+                [ HEX_FILLER_8, HEX_FILLER_16, HEX_FILLER_32 ] = [ `00`, `0000`, `00000000` ],
                 // -------------------------------------
                 base2base = (num, src, tgt, filler) => {
                     const
                         n = (parseInt(num, src) >>> 0).toString(tgt).toUpperCase(),
                         [ r, l ] = filler ? [ `${ filler }${ n }`, filler.length ] : [ n, n.length ];
                     return r.substring(r.length - l);
+                },
+                // -------------------------------------
+                // encodes a string in utf8 code units
+                utf8Encode = s => {
+                    const
+                        // spread to utf16 code points
+                        sp = [ ...s ],
+                        // results buffer
+                        bf = [];
+                    // encode code points to utf8 code units
+                    for (let i = 0; i < sp.length; i++) {
+                        const
+                            // extract full code point
+                            cp = sp[i].codePointAt(0);
+                        // encode
+                        switch (true) {
+                        // U+0000   U+007F
+                        case cp > 0x0000 && cp < 0x007f :
+                            // 0xxxxxxx
+                            bf.push(cp & 0b01111111);
+                            break;
+                        // U+0080   U+07FF
+                        case cp > 0x0080 && cp < 0x07ff :
+                            // 110xxxxx     10xxxxxx
+                            bf.push(0b11000000 | cp >> 6 & 0b00011111, 0b10000000 | cp & 0b00111111);
+                            break;
+                        // U+0800   U+FFFF
+                        case cp > 0x0800 && cp < 0xffff :
+                            // 1110xxxx     10xxxxxx    10xxxxxx
+                            bf.push(0b11100000 | cp >> 12 & 0b00001111, 0b10000000 | cp >> 6 & 0b00111111, 0b10000000 | cp & 0b00111111);
+                            break;
+                        // U+10000	U+10FFFF
+                        case cp > 0x10000 && cp < 0x10ffff :
+                            // 11110xxx     10xxxxxx	10xxxxxx	10xxxxxx
+                            bf.push(0b11110000 | cp >> 18 & 0b00000111, 0b10000000 | cp >> 12 & 0b00111111, 0b10000000 | cp >> 6 & 0b00111111, 0b10000000 | cp & 0b00111111);
+                            break;
+                        // monkaHmm ...
+                        default :
+                            break;
+                        }
+                    }
+                    // return buffer
+                    return bf;
+                },
+                // -------------------------------------
+                // encodes a string in utf16 code units
+                utf16Encode = s => {
+                    const
+                        // spread to utf16 code points
+                        sp = [ ...s ],
+                        // results buffer
+                        bf = [];
+                    // encode code points to utf16 code units
+                    for (let i = 0; i < sp.length; i++)
+                        bf.push(sp[i].charCodeAt(0));
+                    // return buffer
+                    return bf;
                 },
                 // -------------------------------------
                 applyFilter = filter => {
@@ -51,37 +119,70 @@
                     .forEach(s => fld.addEventListener(s, e => applyFilter.call(e.target, filter))),
                 // -------------------------------------
                 updatefields = (i, f) => {
-                    if (f === `b`) {
+                    if (f === `t`) {
+                        // text value changes, update utf8 and utf16
+                        const
+                            // store utf8 code units
+                            utf8 = Uint8Array.from(utf8Encode(textfields[i].value)),
+                            // store utf16 code units
+                            utf16 = Uint16Array.from(utf16Encode(textfields[i].value));
+                        // format
+                        utf8fields[i].value =
+                            `[${ utf8
+                                .reduce((r, x) => {
+                                    r.push(base2base(x, 10, 16, HEX_FILLER_8));
+                                    return r;
+                                }, []) }]`;
+                        utf8fields[i + 1].value =
+                            `[${ utf8
+                                .reduce((r, x) => {
+                                    r.push(base2base(x, 10, 2, BIN_FILLER_8));
+                                    return r;
+                                }, []) }]`;
+                        utf16fields[i].value =
+                            `[${ utf16
+                                .reduce((r, x) => {
+                                    r.push(base2base(x, 10, 16, HEX_FILLER_16));
+                                    return r;
+                                }, []) }]`;
+                        utf16fields[i + 1].value =
+                            `[${ utf16
+                                .reduce((r, x) => {
+                                    r.push(base2base(x, 10, 2, BIN_FILLER_16));
+                                    return r;
+                                }, []) }]`;
+                        return;
+                    } else if (f === `b`) {
                         // binary value changes, update decimal and hexa
                         decfields[i].value = base2base(binfields[i].value, 2, 10, null);
-                        hexfields[i].value = base2base(binfields[i].value, 2, 16, HEX_FILLER);
+                        hexfields[i].value = base2base(binfields[i].value, 2, 16, HEX_FILLER_32);
                     } else if (f === `d`) {
                         // decimal value changes, update binary and hexa
-                        binfields[i].value = base2base(decfields[i].value, 10, 2, BIN_FILLER);
-                        hexfields[i].value = base2base(decfields[i].value, 10, 16, HEX_FILLER);
+                        binfields[i].value = base2base(decfields[i].value, 10, 2, BIN_FILLER_32);
+                        hexfields[i].value = base2base(decfields[i].value, 10, 16, HEX_FILLER_32);
                     } else if (f === `h`) {
                         // hexa value changes, update decimal and binary
                         decfields[i].value = base2base(hexfields[i].value, 16, 10, null);
-                        binfields[i].value = base2base(hexfields[i].value, 16, 2, BIN_FILLER);
+                        binfields[i].value = base2base(hexfields[i].value, 16, 2, BIN_FILLER_32);
                     } else if (f === `s`) {
                         const
                             t = 1 ^ i % 2;
                         // shift values change
                         if (i < 9) {
-                            binfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 2, BIN_FILLER);
-                            hexfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 16, HEX_FILLER);
+                            binfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 2, BIN_FILLER_32);
+                            hexfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 16, HEX_FILLER_32);
                         } else if (i < 11) {
-                            binfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 2, BIN_FILLER);
-                            hexfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 16, HEX_FILLER);
+                            binfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 2, BIN_FILLER_32);
+                            hexfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 16, HEX_FILLER_32);
                         } else {
-                            binfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 2, BIN_FILLER);
-                            hexfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 16, HEX_FILLER);
+                            binfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 2, BIN_FILLER_32);
+                            hexfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 16, HEX_FILLER_32);
                         }
                         decfields[i].value = base2base(binfields[i].value, 2, 10, null);
                         return;
                     }
 
-                    if (i <= 1) {
+                    if (i <= 1 && f !== `t`) {
                         // update operations results
                         [   decfields[0].value & decfields[1].value,       // 1 AND 2
                             decfields[0].value | decfields[1].value,       // 1 OR 2
@@ -96,7 +197,7 @@
                             decfields[1].value >> numfields[12].value      // SPRS 2
                         ].forEach((x, j) => {
                             // update binary
-                            binfields[j + 2].value = base2base(x, 10, 2, BIN_FILLER);
+                            binfields[j + 2].value = base2base(x, 10, 2, BIN_FILLER_32);
                             // update hexa and decimal
                             binfields[j + 2]
                                 .onchange();
@@ -106,6 +207,24 @@
                 // -------------------------------------
                 // eslint-disable-next-line no-unused-vars
                 initfields = () => {
+                    // -------------------------------------
+                    // initialize fields
+                    textfields =
+                    [ `s1Flat` ]
+                        .map(x => document.getElementById(x));
+                    utf8fields =
+                    [ `s1Utf8hexa`, `s1Utf8binary` ]
+                        .map(x => document.getElementById(x));
+                    utf16fields =
+                    [ `s1Utf16hexa`, `s1Utf16binary` ]
+                        .map(x => document.getElementById(x));
+                    // -------------------------------------
+                    // install filters
+                    textfields
+                        .forEach((x, i) => {
+                            x.onkeyup = () => updatefields(i, `t`);
+                        });
+                    // -------------------------------------
                     // initialize fields
                     decfields =
                     [ `n1decimal`, `n2decimal`, `n1ANDn2decimal`, `n1ORn2decimal`, `n1XORn2decimal`, `NOTn1decimal`, `NOTn2decimal`, `ZFLSn1decimal`, `ZFLSn2decimal`, `ZFRSn1decimal`, `ZFRSn2decimal`, `SRSn1decimal`, `SRSn2decimal` ]
@@ -150,9 +269,11 @@
                 };
 		</script>
 	</head>
-	<body onload="initfields()">
-		<h2>Unsigned 32 bit binary and hexadecimal representation of integer numbers</h2>
+	<body onload="initfields()">		
 		<table>
+			<tr>
+				<td colspan="3"><h2>Binary and hexadecimal representation of integers using unsigned 32 bit</h2></td>
+			</tr>
 			<tr>
 				<td>Number 1 (base 10) :</td>
 				<td>&nbsp;</td>
@@ -297,9 +418,43 @@
                     <input type="text" id="SRSn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
                     <input type="number" min="0" max="4294967295" id="SRSn2decimal" class="decimal" readonly="true">
                 </td>
+			</tr>  
+			<tr>
+				<td colspan="3">&nbsp;</td>
+			</tr>
+			<tr>
+				<td colspan="3"><h2>Binary and hexadecimal representation of UTF-8 / UTF-16 encoded strings</h2></td>
+			</tr>
+			<tr>
+				<td>String :</td>
+				<td colspan="2"><input type="text" id="s1Flat" minlength="0" maxlength="100" class="txt editable"></td>
+				<td>&nbsp;</td>
 			</tr>
 			<tr>
 				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>UTF-8 code units (base 16) :</td>
+				<td colspan="2"><textarea id="s1Utf8hexa" class="encodedhex" readonly="true">[]</textarea></td>
+                <td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td>UTF-8 code units (base 2) :</td>
+				<td colspan="2"><textarea id="s1Utf8binary" class="encodedbin" readonly="true">[]</textarea></td>
+                <td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>UTF-16 code units (base 16) :</td>
+				<td colspan="2"><textarea id="s1Utf16hexa" class="encodedhex" readonly="true">[]</textarea></td>
+                <td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td>UTF-16 code units (base 2) :</td>
+				<td colspan="2"><textarea id="s1Utf16binary" class="encodedbin" readonly="true">[]</textarea></td>
+                <td>&nbsp;</td>
 			</tr>
 		</table>
 		<br/>
