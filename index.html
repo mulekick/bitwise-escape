@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<style>
+		input.decimal {width: 110px; letter-spacing: 2px; text-align: right; font-family: monospace}
+		input.editable, textarea.editable {border: 1px solid #003cff}
+		input:invalid {border: 2px solid red}
+		input.binary {width: 300px; letter-spacing: 2px; text-align: right; font-family: monospace}
+		input.hexa {width: 75px; letter-spacing: 2px; text-align: right; font-family: monospace}
+		input.num {width: 35px; letter-spacing: 2px; text-align: right; font-family: monospace}
+		textarea.txtflat {width: 580px; height: 50px; letter-spacing: 1px; text-align: left; font-family: monospace; resize: none}
+		textarea.encoded {width: 580px; height: 120px; letter-spacing: 1px; text-align: left; font-family: monospace; resize: none}
+		body {background-color:hsla(120,100%,75%,0.1); font-family: monospace}
+		</style>
+        <script>
+            /* eslint-disable no-bitwise */
+            /* eslint-disable no-invalid-this */
+            let
+                binfields = null,
+                decfields = null,
+                hexfields = null,
+                numfields = null,
+                textfields = null,
+                utf8fields = null,
+                utf16fields = null;
+
+            const
+                // -------------------------------------
+                // binary fillers per integer type (8, 16, 32 bits)
+                // eslint-disable-next-line no-unused-vars
+                [ BIN_FILLER_8, BIN_FILLER_16, BIN_FILLER_32 ] = [ `00000000`, `0000000000000000`, `00000000000000000000000000000000` ],
+                // hexadecimal fillers per integer type (8, 16, 32 bits)
+                [ HEX_FILLER_8, HEX_FILLER_16, HEX_FILLER_32 ] = [ `00`, `0000`, `00000000` ],
+                // -------------------------------------
+                base2base = (num, src, tgt, filler) => {
+                    const
+                        n = (parseInt(num, src) >>> 0).toString(tgt).toUpperCase(),
+                        [ r, l ] = filler ? [ `${ filler }${ n }`, filler.length ] : [ n, n.length ];
+                    return r.substring(r.length - l);
+                },
+                // -------------------------------------
+                // encodes a string in utf8 code units
+                utf8Encode = s => {
+                    const
+                        // spread to utf16 code points
+                        sp = [ ...s ],
+                        // results buffer
+                        bf = [];
+                    // encode code points to utf8 code units
+                    for (let i = 0; i < sp.length; i++) {
+                        const
+                            // extract full code point
+                            cp = sp[i].codePointAt(0);
+                        // encode
+                        switch (true) {
+                        // U+0000   U+007F
+                        case cp > 0x0000 && cp < 0x007f :
+                            // 0xxxxxxx
+                            bf.push(cp & 0b01111111);
+                            break;
+                        // U+0080   U+07FF
+                        case cp > 0x0080 && cp < 0x07ff :
+                            // 110xxxxx     10xxxxxx
+                            bf.push(0b11000000 | cp >> 6 & 0b00011111, 0b10000000 | cp & 0b00111111);
+                            break;
+                        // U+0800   U+FFFF
+                        case cp > 0x0800 && cp < 0xffff :
+                            // 1110xxxx     10xxxxxx    10xxxxxx
+                            bf.push(0b11100000 | cp >> 12 & 0b00001111, 0b10000000 | cp >> 6 & 0b00111111, 0b10000000 | cp & 0b00111111);
+                            break;
+                        // U+10000	U+10FFFF
+                        case cp > 0x10000 && cp < 0x10ffff :
+                            // 11110xxx     10xxxxxx	10xxxxxx	10xxxxxx
+                            bf.push(0b11110000 | cp >> 18 & 0b00000111, 0b10000000 | cp >> 12 & 0b00111111, 0b10000000 | cp >> 6 & 0b00111111, 0b10000000 | cp & 0b00111111);
+                            break;
+                        // monkaHmm ...
+                        default :
+                            break;
+                        }
+                    }
+                    // return buffer
+                    return bf;
+                },
+                // -------------------------------------
+                // encodes a string in utf16 code units
+                utf16Encode = s => {
+                    const
+                        // results buffer
+                        bf = [];
+                    // loop on utf16 code units using builtins
+                    for (let i = 0; i < s.length; i++)
+                        bf.push(s.charCodeAt(i));
+                    // return buffer
+                    return bf;
+                },
+                // -------------------------------------
+                applyFilter = filter => {
+                    if (filter(this.value)) {
+                        Object.assign(this, {
+                            oldValue: this.value,
+                            oldSelectionStart: this.selectionStart,
+                            oldSelectionEnd: this.selectionEnd
+                        });
+                    } else if (Object.prototype.hasOwnProperty.call(this, `oldValue`)) {
+                        this.value = this.oldValue;
+                        this.setSelectionRange(this.oldSelectionStart, this.oldSelectionEnd);
+                    } else {
+                        this.value = ``;
+                    }
+                },
+                // -------------------------------------
+                // Restricts input for the given text field to the given filter
+                setFilter = (fld, filter) => [ `input`, `keydown`, `keyup`, `mousedown`, `mouseup`, `select`, `contextmenu`, `drop` ]
+                    .forEach(s => fld.addEventListener(s, e => applyFilter.call(e.target, filter))),
+                // -------------------------------------
+                updatefields = (i, f) => {
+                    if (f === `t`) {
+                        // text value changes, update code points utf8 and utf16
+                        const
+                            // store code points
+                            codePts = [ ...textfields[i].value ],
+                            // store utf8 code units
+                            utf8 = Uint8Array.from(utf8Encode(textfields[i].value)),
+                            // store utf16 code units
+                            utf16 = Uint16Array.from(utf16Encode(textfields[i].value));
+                        // format
+                        textfields[i + 1].value =
+                            codePts
+                                .reduce((r, x) => {
+                                    // eslint-disable-next-line newline-per-chained-call
+                                    r.push(`U+${ x.codePointAt(0).toString(16).padStart(4, `0000`) }`);
+                                    return r;
+                                }, [])
+                                .join(`,`);
+                        utf8fields[i].value =
+                            utf8
+                                .reduce((r, x) => {
+                                    r.push(`\\x${ base2base(x, 10, 16, HEX_FILLER_8).toLowerCase() }`);
+                                    return r;
+                                }, [])
+                                .join(``);
+                        utf16fields[i].value =
+                            utf16
+                                .reduce((r, x) => {
+                                    r.push(`\\u${ base2base(x, 10, 16, HEX_FILLER_16).toLowerCase() }`);
+                                    return r;
+                                }, [])
+                                .join(``);
+                        return;
+                    } else if (f === `b`) {
+                        // binary value changes, update decimal and hexa
+                        decfields[i].value = base2base(binfields[i].value, 2, 10, null);
+                        hexfields[i].value = base2base(binfields[i].value, 2, 16, HEX_FILLER_32);
+                    } else if (f === `d`) {
+                        // decimal value changes, update binary and hexa
+                        binfields[i].value = base2base(decfields[i].value, 10, 2, BIN_FILLER_32);
+                        hexfields[i].value = base2base(decfields[i].value, 10, 16, HEX_FILLER_32);
+                    } else if (f === `h`) {
+                        // hexa value changes, update decimal and binary
+                        decfields[i].value = base2base(hexfields[i].value, 16, 10, null);
+                        binfields[i].value = base2base(hexfields[i].value, 16, 2, BIN_FILLER_32);
+                    } else if (f === `s`) {
+                        const
+                            t = 1 ^ i % 2;
+                        // shift values change
+                        if (i < 9) {
+                            binfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 2, BIN_FILLER_32);
+                            hexfields[i].value = base2base(decfields[t].value << numfields[i].value, 10, 16, HEX_FILLER_32);
+                        } else if (i < 11) {
+                            binfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 2, BIN_FILLER_32);
+                            hexfields[i].value = base2base(decfields[t].value >>> numfields[i].value, 10, 16, HEX_FILLER_32);
+                        } else {
+                            binfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 2, BIN_FILLER_32);
+                            hexfields[i].value = base2base(decfields[t].value >> numfields[i].value, 10, 16, HEX_FILLER_32);
+                        }
+                        decfields[i].value = base2base(binfields[i].value, 2, 10, null);
+                        return;
+                    }
+
+                    if (i <= 1 && f !== `t`) {
+                        // update operations results
+                        [   decfields[0].value & decfields[1].value,       // 1 AND 2
+                            decfields[0].value | decfields[1].value,       // 1 OR 2
+                            decfields[0].value ^ decfields[1].value,       // 1 XOR 2
+                            ~decfields[0].value,                           // NOT 1
+                            ~decfields[1].value,                           // NOT 2
+                            decfields[0].value << numfields[7].value,      // ZFLS 1
+                            decfields[1].value << numfields[8].value,      // ZFLS 2
+                            decfields[0].value >>> numfields[9].value,     // ZFRS 1
+                            decfields[1].value >>> numfields[10].value,    // ZFRS 2
+                            decfields[0].value >> numfields[11].value,     // SPRS 1
+                            decfields[1].value >> numfields[12].value      // SPRS 2
+                        ].forEach((x, j) => {
+                            // update binary
+                            binfields[j + 2].value = base2base(x, 10, 2, BIN_FILLER_32);
+                            // update hexa and decimal
+                            binfields[j + 2]
+                                .onchange();
+                        });
+                    }
+                },
+                // -------------------------------------
+                // eslint-disable-next-line no-unused-vars
+                initfields = () => {
+                    // -------------------------------------
+                    // initialize fields
+                    textfields =
+                    [ `s1Flat`, `s1CodePtshexa` ]
+                        .map(x => document.getElementById(x));
+                    utf8fields =
+                    [ `s1Utf8hexa` ]
+                        .map(x => document.getElementById(x));
+                    utf16fields =
+                    [ `s1Utf16hexa` ]
+                        .map(x => document.getElementById(x));
+                    // -------------------------------------
+                    // install filters
+                    textfields
+                        .forEach((x, i) => {
+                            x.onkeyup = () => updatefields(i, `t`);
+                        });
+                    // -------------------------------------
+                    // initialize fields
+                    decfields =
+                    [ `n1decimal`, `n2decimal`, `n1ANDn2decimal`, `n1ORn2decimal`, `n1XORn2decimal`, `NOTn1decimal`, `NOTn2decimal`, `ZFLSn1decimal`, `ZFLSn2decimal`, `ZFRSn1decimal`, `ZFRSn2decimal`, `SRSn1decimal`, `SRSn2decimal` ]
+                        .map(x => document.getElementById(x));
+                    binfields =
+                    [ `n1binary`, `n2binary`, `n1ANDn2binary`, `n1ORn2binary`, `n1XORn2binary`, `NOTn1binary`, `NOTn2binary`, `ZFLSn1binary`, `ZFLSn2binary`, `ZFRSn1binary`, `ZFRSn2binary`, `SRSn1binary`, `SRSn2binary` ]
+                        .map(x => document.getElementById(x));
+                    hexfields =
+                    [ `n1hexa`, `n2hexa`, `n1ANDn2hexa`, `n1ORn2hexa`, `n1XORn2hexa`, `NOTn1hexa`, `NOTn2hexa`, `ZFLSn1hexa`, `ZFLSn2hexa`, `ZFRSn1hexa`, `ZFRSn2hexa`, `SRSn1hexa`, `SRSn2hexa` ]
+                        .map(x => document.getElementById(x));
+                    numfields =
+                    [ ,,,,,,, `numZFLSn1`, `numZFLSn2`, `numZFRSn1`, `numZFRSn2`, `numSRSn1`, `numSRSn2` ]
+                        .map(x => document.getElementById(x));
+                    // -------------------------------------
+                    // install filters
+                    decfields
+                        .forEach((x, i) => {
+                            // Install input filters (only numbers, value must be a valid Uint32Array element value)
+                            setFilter(x, value => /^[0-9]*$/u.test(value) && value >= 0 && value <= 4294967295);
+                            x.onchange = () => updatefields(i, `d`);
+                        });
+                    binfields
+                        .forEach((x, i) => {
+                            // Install input filters (only 0's or 1's, length of 32 is enforced by ValidityState)
+                            setFilter(x, value => /^[0-1]*$/u.test(value));
+                            x.onchange = () =>  updatefields(i, `b`);
+                        });
+                    hexfields
+                        .forEach((x, i) => {
+                            // Install input filters (only 0-9 A-F, length of 8 is enforced by ValidityState)
+                            setFilter(x, value => /^[0-9A-F]*$/u.test(value));
+                            x.onchange = () =>  updatefields(i, `h`);
+                        });
+                    numfields.forEach((x, i) => {
+                        if (typeof x !== `undefined`) {
+                            // Install input filters (only numbers)
+                            setFilter(x, value => /^[0-9]*/u.test(value) && value >= 0 && value <= 32);
+                            x.onchange = () =>  updatefields(i, `s`);
+                        }
+                    });
+                    // -------------------------------------
+                };
+		</script>
+	</head>
+	<body onload="initfields()">		
+		<table>
+			<tr>
+				<td colspan="3"><h2>Binary and hexadecimal representation of unsigned 32 bit integers</h2></td>
+			</tr>
+			<tr>
+				<td>Number 1 (base 10) :</td>
+				<td>&nbsp;</td>
+				<td><input type="number" min="0" max="4294967295" id="n1decimal" class="decimal editable"></td>
+				<td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td>Number 2 (base 10) :</td>
+				<td>&nbsp;</td>
+				<td><input type="number" min="0" max="4294967295" id="n2decimal" class="decimal editable"></td>
+				<td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>Number 1 (base 2 and 16) :</td>
+				<td>&nbsp;</td>
+				<td>
+                    <input type="text" id="n1binary" minlength="32" maxlength="32" class="binary editable">&nbsp;
+                    <input type="text" id="n1hexa" minlength="8" maxlength="8" class="hexa editable">
+                </td>
+			</tr>
+			<tr>
+				<td>Number 2 (base 2 and 16) :</td>
+				<td>&nbsp;</td>
+                <td>
+                    <input type="text" id="n2binary" minlength="32" maxlength="32" class="binary editable">&nbsp;
+                    <input type="text" id="n2hexa" minlength="8" maxlength="8" class="hexa editable">
+                </td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>Number 1 AND Number 2 :</td>
+				<td>&nbsp;</td>
+				<td>
+                    <input type="text" id="n1ANDn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="n1ANDn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="n1ANDn2decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td>Number 1 OR  Number 2 :</td>
+				<td>&nbsp;</td>
+				<td>
+                    <input type="text" id="n1ORn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="n1ORn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="n1ORn2decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td>Number 1 XOR Number 2 :</td>
+				<td>&nbsp;</td>
+				<td>
+                    <input type="text" id="n1XORn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="n1XORn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="n1XORn2decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>NOT Number 1 :</td>
+				<td>&nbsp;</td>
+				<td>
+                    <input type="text" id="NOTn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="NOTn1hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="NOTn1decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td>NOT Number 2 :</td>
+				<td>&nbsp;</td>
+				<td>
+                    <input type="text" id="NOTn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="NOTn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="NOTn2decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>Number 1 zero fill left shift :</td>
+				<td><input type="number" min="0" max="32" id="numZFLSn1" class="num" value = "0"></td>
+				<td>
+                    <input type="text" id="ZFLSn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="ZFLSn1hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="ZFLSn1decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td>Number 2 zero fill left shift :</td>
+				<td><input type="number" min="0" max="32" id="numZFLSn2" class="num" value = "0"></td>
+				<td>
+                    <input type="text" id="ZFLSn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="ZFLSn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="ZFLSn2decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>Number 1 zero fill right shift :</td>
+				<td><input type="number" min="0" max="32" id="numZFRSn1" class="num" value = "0"></td>
+				<td>
+                    <input type="text" id="ZFRSn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="ZFRSn1hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="ZFRSn1decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td>Number 2 zero fill right shift :</td>
+				<td><input type="number" min="0" max="32" id="numZFRSn2" class="num" value = "0"></td>
+				<td>
+                    <input type="text" id="ZFRSn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="ZFRSn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="ZFRSn2decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>Number 1 signed right shift :</td>
+				<td><input type="number" min="0" max="32" id="numSRSn1" class="num" value = "0"></td>
+				<td>
+                    <input type="text" id="SRSn1binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="SRSn1hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="SRSn1decimal" class="decimal" readonly="true">
+                </td>
+			</tr>
+			<tr>
+				<td>Number 2 signed right shift :</td>
+				<td><input type="number" min="0" max="32" id="numSRSn2" class="num" value = "0"></td>
+				<td>
+                    <input type="text" id="SRSn2binary" minlength="32" maxlength="32" class="binary" readonly="true">&nbsp;
+                    <input type="text" id="SRSn2hexa" minlength="8" maxlength="8" class="hexa" readonly="true">&nbsp;
+                    <input type="number" min="0" max="4294967295" id="SRSn2decimal" class="decimal" readonly="true">
+                </td>
+			</tr>  
+			<tr>
+				<td colspan="3">&nbsp;</td>
+			</tr>
+			<tr>
+				<td colspan="3"><h2>Escaping of UTF-8 / UTF-16 encoded strings (hexadecimal)</h2></td>
+			</tr>
+			<tr>
+				<td>String :</td>
+				<td colspan="2"><textarea id="s1Flat" class="txtflat editable"></textarea></td>
+				<td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>Code points :</td>
+				<td colspan="2"><textarea id="s1CodePtshexa" class="encoded" readonly="true"></textarea></td>
+                <td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>UTF-8 code units (escaped) :</td>
+				<td colspan="2"><textarea id="s1Utf8hexa" class="encoded" readonly="true"></textarea></td>
+                <td>&nbsp;</td>
+			</tr>
+			<tr>
+				<td colspan="3">-----------------------------------------------------------------------------------------------------------------</td>
+			</tr>
+			<tr>
+				<td>UTF-16 code units (escaped) :</td>
+				<td colspan="2"><textarea id="s1Utf16hexa" class="encoded" readonly="true"></textarea></td>
+                <td>&nbsp;</td>
+			</tr>
+		</table>
+		<br/>
+		<h4>Recommended for use with Google Chrome 65.0.3325.181</h4>
+	</body>
+</html>
